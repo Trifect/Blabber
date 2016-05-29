@@ -48,7 +48,14 @@ class ProfilePage: UIViewController {
         } else {
             print("no user signed in")
         }
+    
+        let tap: UITapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(HomePage.dismissKeyboard))
+        view.addGestureRecognizer(tap)
         
+    }
+    
+    func dismissKeyboard() {
+        view.endEditing(true)
     }
     
     override func didReceiveMemoryWarning() {
