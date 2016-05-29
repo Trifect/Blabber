@@ -7,7 +7,7 @@ class Blab {
     var profileName: String
     var blabString: String
     let parent: Blab?
-    let timeStamp: NSDate
+    let timeInterval: Double
     
     var neighbors: [Edge]
     var visited: Bool
@@ -16,23 +16,23 @@ class Blab {
         self.profileName = ""
         self.blabString = ""
         self.parent = nil
-        self.timeStamp = NSDate()
+        self.timeInterval = 0.0
         self.neighbors = [Edge]()
         visited = false
     }
     
-    init(profileName: String, blabString: String, parent: Blab?, timeStamp: NSDate) {
+    init(profileName: String, blabString: String, parent: Blab?, timeInterval: Double) {
         self.profileName = profileName
         self.blabString = blabString
         self.parent = parent
-        self.timeStamp = timeStamp
+        self.timeInterval = timeInterval
         self.neighbors = [Edge]()
         visited = false
     }
 }
 
 func == (a: Blab, b: Blab) -> Bool {
-    return a.profileName == b.profileName && a.blabString == b.blabString && a.timeStamp == b.timeStamp
+    return a.profileName == b.profileName && a.blabString == b.blabString && a.timeInterval == b.timeInterval
 }
 
 class Edge {
@@ -142,13 +142,13 @@ let date3 = NSDate(timeIntervalSinceNow: -467000.0)
 let date4 = NSDate(timeIntervalSinceNow: -724120.0)
 
 // Should be done in the home feed upon posting a blab, as well as in the reply mechanism
-let testBlab1 = Blab(profileName: "Stine", blabString: "Can we go to Grizzly Peak?", parent: nil, timeStamp: date1)
+let testBlab1 = Blab(profileName: "Stine", blabString: "Can we go to Grizzly Peak?", parent: nil, timeInterval: date1.timeIntervalSince1970)
 
-let testBlab2 = Blab(profileName: "Nagoogin", blabString: "It smells like asparagus piss", parent: nil, timeStamp: date2)
+let testBlab2 = Blab(profileName: "Nagoogin", blabString: "It smells like asparagus piss", parent: nil, timeInterval: date2.timeIntervalSince1970)
 
-let testBlab3 = Blab(profileName: "Posadinho", blabString: "I'm a light blue Bruin", parent: nil, timeStamp: date3)
+let testBlab3 = Blab(profileName: "Posadinho", blabString: "I'm a light blue Bruin", parent: nil, timeInterval: date3.timeIntervalSince1970)
 
-let testBlab4 = Blab(profileName: "Jungsoo", blabString: "I like Kim Chi Noodles", parent: nil, timeStamp: date4)
+let testBlab4 = Blab(profileName: "Jungsoo", blabString: "I like Kim Chi Noodles", parent: nil, timeInterval: date4.timeIntervalSince1970)
 
 // User Struct
 
@@ -166,5 +166,9 @@ struct User {
         self.uid = uid
         self.email = email
     }
+}
+
+func getDate(timeInterval: Double) -> NSDate {
+     return NSDate(timeIntervalSince1970: timeInterval)
 }
 

@@ -149,5 +149,6 @@ for blab in myGraph.map {
 myGraph.traverseDFS(myGraph.map[0])
 print(myGraph.influence)
 
-
+let date1 = NSDate(timeIntervalSinceNow: -500.0)
+print(date1))
 

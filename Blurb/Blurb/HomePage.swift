@@ -13,11 +13,6 @@ let prof = "Nagoogin"
 
 class HomePage: UIViewController, UITableViewDelegate, UITableViewDataSource, CLLocationManagerDelegate {
     
-    let ref = Firebase(url: "https://blurb.firebaseio.com")
-//    let locationManager = CLLocationManager()
-    
-    var user: User!
-    
     @IBOutlet weak var blabTextField: UITextField!
     
     @IBOutlet weak var blabTableView: UITableView!
@@ -33,8 +28,7 @@ class HomePage: UIViewController, UITableViewDelegate, UITableViewDataSource, CL
             blabTextField.deleteBackward()
         }
     }
-    var blabList = [testBlab1, testBlab2, testBlab3, testBlab4]
-    var userBlabList = [testBlab2]
+    var blabList = [Blab]()
     
     // This function returns a string for the date given an NSDate date
     func getTimeStamp(date: NSDate) -> String {
@@ -83,27 +77,40 @@ class HomePage: UIViewController, UITableViewDelegate, UITableViewDataSource, CL
     @IBAction func blabButtonAction(sender: AnyObject) {
         if (blabTextField.text != "") {
             // Saves the time of blab submission
-            let profileName = prof
-            let currentTime = NSDate()
-            let newBlab = Blab(profileName: profileName, blabString: blabTextField.text!, parent: nil, timeStamp: currentTime)
-            // Appends a new Blab object to the blabList array
-            blabList.insert(newBlab, atIndex: 0)
-            userBlabList.insert(newBlab, atIndex: 0)
-            
-            // Sets the textField back to empty view
-            blabTextField.text = ""
-            
-            // Updates the table view with the new added row
-            //dispatch_async(dispatch_get_main_queue(), { () -> Void in
-            self.blabTableView.reloadData()
-            //})
-            
-            dismissKeyboard()
-            
-            // DELETE THIS PRIOR TO DEPLOYMENT, OR ELSE, RIP
-            print(blabList)
-            
+            // let profileName = prof
+            let ref = BASE_REF.childByAppendingPath("users/\(BASE_REF.authData.uid)")
+            ref.observeSingleEventOfType(.Value, withBlock: { snapshot in
+                let profileName = snapshot.value.objectForKey("username") as! String
+                
+                let timeInterval = NSDate().timeIntervalSince1970
+                let newBlab = Blab(profileName: profileName, blabString: self.blabTextField.text!, parent: nil, timeInterval: timeInterval)
+                
+                // Appends a new Blab object to the blabList array
+                self.blabList.insert(newBlab, atIndex: 0)
+                // userBlabList.insert(newBlab, atIndex: 0)
+                
+                // Sets the textField back to empty view
+                self.blabTextField.text = ""
+                
+                self.dismissKeyboard()
+                
+                // Updates the table view with the new added row
+                self.blabTableView.reloadData()
+                
+                // Writes the newBlab to Firebase
+                self.writeToFirebase(newBlab)
+            })
         }
+    }
+    
+    func writeToFirebase(blab: Blab) {
+        // Observe single event, don't keep updating
+        BASE_REF.childByAppendingPath("blabs").observeSingleEventOfType(.Value, withBlock: { snapshot in
+            let childCount = snapshot.childrenCount
+            let newBlab = ["user": String(blab.profileName), "blabString": String(blab.blabString), "timeStamp": Double(blab.timeInterval), "parent": String(blab.parent), "influence": 0]
+            BASE_REF.childByAppendingPath("blabs/blab\(childCount)").setValue(newBlab)
+            BASE_REF.childByAppendingPath("users/\(BASE_REF.authData.uid)/blabs/blab\(childCount)").setValue(true)
+        })
     }
     
     override func viewDidLoad() {
@@ -112,12 +119,6 @@ class HomePage: UIViewController, UITableViewDelegate, UITableViewDataSource, CL
         homePageNavBar.topItem!.title = "Home Feed"
         
         blurbButton.layer.cornerRadius = 5
-        
-        // Sets up the location manager
-//        self.locationManager.delegate = self
-//        self.locationManager.desiredAccuracy = kCLLocationAccuracyBest
-//        self.locationManager.requestWhenInUseAuthorization()
-//        self.locationManager.startUpdatingLocation()
         
         refreshControl.backgroundColor = UIColor.groupTableViewBackgroundColor()
         refreshControl.tintColor = UIColor(red:0.0, green:0.545, blue:0.271, alpha:1.0)
@@ -134,38 +135,23 @@ class HomePage: UIViewController, UITableViewDelegate, UITableViewDataSource, CL
     
     override func viewDidAppear(animated: Bool) {
         super.viewDidAppear(animated)
-        
-        ref.observeAuthEventWithBlock { authData in
-            if authData != nil {
-                self.user = User(authData: authData)
+        let ref = BASE_REF.childByAppendingPath("blabs")
+        ref.observeEventType( .Value, withBlock: { snapshot in
+            var newItems = [Blab]()
+            for child in snapshot.children {
+                // Construct a blab from data
+                let user = child.value.objectForKey("user") as! String
+                let blabString = child.value.objectForKey("blabString") as! String
+                let timeInterval = child.value.objectForKey("timeStamp") as! Double
+                let parent = child.value.objectForKey("parent") as? Blab
+                let blab = Blab(profileName: user, blabString: blabString, parent: parent, timeInterval: timeInterval)
+                newItems.insert(blab, atIndex: 0)
             }
-        }
-        
-    }
-    
-//    func locationManager(manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-//        CLGeocoder().reverseGeocodeLocation(manager.location!, completionHandler: { (placemarks, error) -> Void in
-//            if error != nil {
-//                print(error!.localizedDescription)
-//                return
-//            }
-//            if placemarks!.count > 0 {
-//                let placemark = placemarks![0]
-//                self.displayLocationInfo(placemark)
-//            }
-//        })
-//    }
-//    
-//    func displayLocationInfo(placemark: CLPlacemark) {
-//        self.locationManager.stopUpdatingLocation()
-//        print(placemark.locality!)
-//        print(placemark.postalCode!)
-//        print(placemark.administrativeArea!)
-//        print(placemark.country!)
-//    }
-    
-    func locationManager(manager: CLLocationManager, didFailWithError error: NSError) {
-        print(error.localizedDescription)
+            self.blabList = newItems
+            self.blabTableView.reloadData()
+        }, withCancelBlock: { error in
+                print(error.description)
+        })
     }
     
     func handleRefresh(refreshControl: UIRefreshControl) {
@@ -194,14 +180,17 @@ class HomePage: UIViewController, UITableViewDelegate, UITableViewDataSource, CL
         blabbedCell.usernameLabel.text = blabList[indexPath.row].profileName
         blabbedCell.blabLabel.text = blabList[indexPath.row].blabString
         
-        if blabList[indexPath.row].profileName == prof {
-            // If you are the poster, then the text of the blab is in medium weight and app green
-            blabbedCell.blabLabel.textColor = UIColor(red:0.0, green:0.545, blue:0.271, alpha:1.0)
-            blabbedCell.blabLabel.font = UIFont(name: "AvenirNext-Medium", size: 14.0)
-        } else {
-            blabbedCell.blabLabel.textColor = UIColor.blackColor()
-            blabbedCell.blabLabel.font = UIFont(name: "AvenirNext-Regular", size: 14.0)
-        }
+        let ref = BASE_REF.childByAppendingPath("users/\(BASE_REF.authData.uid)")
+        ref.observeSingleEventOfType(.Value, withBlock: { snapshot in
+            if self.blabList[indexPath.row].profileName == snapshot.value.objectForKey("username") as! String {
+                // If you are the poster, then the text of the blab is in medium weight and app green
+                blabbedCell.blabLabel.textColor = UIColor(red:0.0, green:0.545, blue:0.271, alpha:1.0)
+                blabbedCell.blabLabel.font = UIFont(name: "AvenirNext-Medium", size: 14.0)
+            } else {
+                blabbedCell.blabLabel.textColor = UIColor.blackColor()
+                blabbedCell.blabLabel.font = UIFont(name: "AvenirNext-Regular", size: 14.0)
+            }
+        })
         
         // Checks if cell is the first of the user's blabs, then highlight it in green. It's too bad this control flow block has to be separate from the one above because otherwise it won't exhaustively check all the cells.
         
@@ -211,7 +200,7 @@ class HomePage: UIViewController, UITableViewDelegate, UITableViewDataSource, CL
 //            blabbedCell.backgroundColor = UIColor.whiteColor()
 //        }
         
-        blabbedCell.timeStampLabel.text = updateTimeStamp(blabList[indexPath.row].timeStamp)
+        blabbedCell.timeStampLabel.text = updateTimeStamp(NSDate(timeIntervalSince1970: blabList[indexPath.row].timeInterval))
         
         return blabbedCell
     }
